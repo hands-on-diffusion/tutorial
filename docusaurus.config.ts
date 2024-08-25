@@ -3,19 +3,19 @@ import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
-  title: 'Hands on diffuser',
+  title: 'Hands on diffusion',
   tagline: 'Dinosaurs are cool',
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
-  url: 'https://hands-on-diffuser.github.io',
+  url: 'https://hands-on-diffusion.github.io',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
   baseUrl: '/tutorial/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'hands-on-diffuser', // Usually your GitHub org/user name.
+  organizationName: 'hands-on-diffusion', // Usually your GitHub org/user name.
   projectName: 'tutorial', // Usually your repo name.
 
   onBrokenLinks: 'throw',
@@ -38,7 +38,7 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/hands-on-diffuser/tutorial/tree/main/',
+            'https://github.com/hands-on-diffusion/tutorial/tree/main/',
         },
         // blog: {
         //   showReadingTime: true,
@@ -82,7 +82,7 @@ const config: Config = {
     // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',
     navbar: {
-      title: 'Hands on diffuser',
+      title: 'Hands on diffusion',
       logo: {
         alt: 'My Site Logo',
         src: 'img/logo.svg',
@@ -96,7 +96,7 @@ const config: Config = {
         },
         {to: '/blog', label: 'Blog', position: 'left'},
         {
-          href: 'https://github.com/hands-on-diffuser/tutorial',
+          href: 'https://github.com/hands-on-diffusion/tutorial',
           label: 'GitHub',
           position: 'right',
         },
@@ -145,7 +145,7 @@ const config: Config = {
         //   ],
         // },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Hands on diffuser, Inc. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Hands on diffusion, Inc. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,
