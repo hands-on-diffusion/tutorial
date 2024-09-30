@@ -24,9 +24,7 @@ transform = Compose(
         Lambda(lambda x: (x - 0.5) * 2),
     ]
 )
-dataset = FashionMNIST(
-    "./datasets", download=True, train=True, transform=transform
-)
+dataset = FashionMNIST("./datasets", download=True, train=True, transform=transform)
 loader = DataLoader(dataset, batch_size=128, shuffle=True)
 ```
 
@@ -154,7 +152,6 @@ class Decoder(nn.Module):
         out_6_up_result = self.layer_6_up(out_5_block_result)  # (N, 10, 28, 28)
         out_6_block_result = self.layer_6_block(out_6_up_result)  # (N, 10, 28, 28)
         out = self.conv_out(out_6_block_result)  # (N, 1, 28, 28)
-        return oution(out)
         return out
 ```
 
