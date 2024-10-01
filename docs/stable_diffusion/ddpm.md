@@ -36,7 +36,7 @@ DDPM 에서는 DPPM 알고리즘과 UNet 을 사용합니다.
 
 ### Encoder & Decoder
 
-이번 예제에서는 앞선 [Vanila AutoEncoder](vanila_autoencoder) 에서 사용한 블록을 사용합니다.
+이번 예제에서는 앞선 [Vanila AutoEncoder](../encoder_decoder/vanila_autoencoder) 에서 사용한 블록을 사용합니다.
 
 ```python
 import torch
