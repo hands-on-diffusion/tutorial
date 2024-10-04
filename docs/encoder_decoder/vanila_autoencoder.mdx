@@ -5,6 +5,7 @@ sidebar_position: 1
 # Vanila AutoEncoder
 
 import CodeDescription from "@site/src/components/CodeDescription";
+import BrowserWindow from "@site/src/components/BrowserWindow";
 
 
 이번 페이지에서는 오토인코더를 이용해 f-minst 데이터셋을 압축하고 해제해서 reconstruction 을 하는 예제를 설명합니다.
@@ -13,7 +14,7 @@ import CodeDescription from "@site/src/components/CodeDescription";
 우선 튜토리얼에 들어가기에 앞서 사용할 데이터셋을 선언합니다.
 데이터셋에 대한 자세한 설명은 [Fashion-MNIST](../dataset/fmnist) 페이지에서 확인할 수 있습니다.
 
-```python
+```python showLineNumbers
 from torchvision.transforms import Compose, ToTensor, Lambda
 from torchvision.datasets.mnist import FashionMNIST
 from torch.utils.data import DataLoader
@@ -35,7 +36,7 @@ loader = DataLoader(dataset, batch_size=128, shuffle=True)
 
 우선 모델에서 전반적으로 사용할 단위의 블록을 선언합니다.
 
-```python
+```python showLineNumbers
 import torch
 import torch.nn as nn
 
@@ -68,15 +69,11 @@ class AutoEncoderBlock(nn.Module):
         return out
 ```
 
-해당 블록의 아키텍쳐는 다음과 같습니다.
-
-
-
 ### Encoder 
 
 이번에는 오토인코더의 인코더, 즉 정보를 압축하는 모델을 작성해 보겠습니다.
 
-```python
+```python showLineNumbers
 class Encoder(nn.Module):
     def __init__(self):
         super().__init__()
@@ -119,7 +116,7 @@ class Encoder(nn.Module):
 한번 해당 블록의 내부 코드가 어떻게 동작하는 지 확인해 보도록 하겠습니다.
 
 <CodeDescription>
-```python
+```python showLineNumbers
 encoder = Encoder()
 
 for batch in loader:
@@ -152,7 +149,7 @@ with torch.no_grad():
 
 ### Decoder
 
-```python
+```python showLineNumbers
 class Decoder(nn.Module):
     def __init__(self):
         super().__init__()
@@ -204,7 +201,7 @@ class Decoder(nn.Module):
 이번에도 해당 블록의 내부 코드가 어떻게 동작하는 지 확인해 보도록 하겠습니다.
 
 <CodeDescription>
-```python
+```python showLineNumbers
 decoder = Decoder()
 
 z = out_3_down_result
@@ -239,7 +236,7 @@ with torch.no_grad():
 
 이제 위에서 작성한 코드를 이용해 오토인코더를 작성합니다.
 
-```python
+```python showLineNumbers
 class AutoEncoder(nn.Module):
     def __init__(self):
         super().__init__()
@@ -253,7 +250,7 @@ class AutoEncoder(nn.Module):
 ```
 
 <CodeDescription>
-```python
+```python showLineNumbers
 auto_encoder = AutoEncoder()
 
 x = batch[0]
@@ -269,7 +266,8 @@ with torch.no_grad():
 
 위의 모델을 통해 reconstruction 된 결과물을 확인해 보겠습니다.
 
-```python
+<BrowserWindow>
+```python showLineNumbers
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
 
@@ -280,8 +278,8 @@ plt.figure(figsize=(8, 8))
 plt.title("First batch reconstruction")
 plt.imshow(recon_x_grid[0], cmap="gray")
 ```
-
 ![First Batch Reconstruction](./img/ae_first_recon.png)
+</BrowserWindow>
 
 ## Train
 
@@ -290,23 +288,28 @@ plt.imshow(recon_x_grid[0], cmap="gray")
 Convolution Network 는 원활한 학습을 위해서는 gpu 가 필요합니다.
 GPU 가 없는 경우 학습에 다소 시간이 소요될 수 있습니다.
 아래 코드를 이용해 device 를 선언합니다.
+만약 gpu 가 사용 가능한 경우 `device(type='cuda')` 메세지가 나옵니다.
 
-```python
+<BrowserWindow>
+```python showLineNumbers
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device
 ```
-만약 gpu 가 사용 가능한 경우 `device(type='cuda')` 메세지가 나옵니다.
-
+```python
+device(type='cuda')
+```
+</BrowserWindow>
 
 위에서 선언한 모델을 gpu 메모리로 옮기겠습니다.
 
-```python
+```python showLineNumbers
 _ = auto_encoder.to(device)
 ```
 
-학습을 위한 코드를 작성해 보겠습니다.
+학습을 위한 코드를 작성하고 실행해 보겠습니다.
 
-```python
+<BrowserWindow>
+```python showLineNumbers
 import torch.optim as optim
 from tqdm import tqdm
 
@@ -331,10 +334,7 @@ for epoch in range(n_epochs):
 
     print(log_string)
 ```
-
-학습을 진행하면 아래와 같은 결과를 얻을 수 있습니다.
-
-```bash
+```python
 Epoch 1/10: 100%|██████████| 469/469 [00:15<00:00, 30.89it/s]
 Loss at epoch 1: 0.159
 Epoch 2/10: 100%|██████████| 469/469 [00:13<00:00, 35.85it/s]
@@ -356,12 +356,14 @@ Loss at epoch 9: 0.033
 Epoch 10/10: 100%|██████████| 469/469 [00:12<00:00, 36.11it/s]
 Loss at epoch 10: 0.032
 ```
+</BrowserWindow>
 
-학습이 정상적으로 수행되었는 지 실제 이미지를 확인해 보겠습니다.
+학습이 정상적으로 수행되었는지 이미지를 확인해 보겠습니다.
 
 데이터 로더에서 하나의 배치의 원본 데이터와 학습된 모델이 추론한 결과를 비교합니다.
 
-```python
+<BrowserWindow>
+```python showLineNumbers
 with torch.no_grad():    
     x = batch[0].to(device)
     recon_x = auto_encoder(x)
@@ -378,11 +380,8 @@ axes[0].imshow(x_grid[0], cmap="gray")
 axes[1].set_title("Batch reconstruction")
 axes[1].imshow(recon_x_grid[0], cmap="gray")
 ```
-
-위 코드를 수행하면 아래와 같은 결과를 얻을 수 있습니다.
-
 ![Raw Batch and Batch Reconstruction](./img/ae_raw_recon.png)
-
+</BrowserWindow>
 
 적은 에폭으로 모델을 학습했지만 정상적으로 재현되는 것을 확인할 수 있었습니다.
 
@@ -390,8 +389,10 @@ axes[1].imshow(recon_x_grid[0], cmap="gray")
 
 이번에는 학습한 모델의 디코더를 이용해 랜덤한 latent 값을 주었을 때 어떤 이미지를 생성하는 지 확인해 보겠습니다.
 
+위의 예시에서 만들었던 latent vector z 와 shape 이 같은 random 값을 생성 후 decoder 로 복원을 하면 아래와 같은 이미지를 얻을 수 있습니다.
 
-```python
+<BrowserWindow>
+```python showLineNumbers
 with torch.no_grad():    
     random_z = torch.rand_like(z).to(device)
     generated_x = auto_encoder.decoder(random_z)
@@ -403,7 +404,5 @@ plt.figure(figsize=(8, 8))
 plt.title("Generated batch")
 plt.imshow(generated_x_grid[0], cmap="gray")
 ```
-
-위의 예시에서 만들었던 latent vector z 와 shape 이 같은 random 값을 생성 후 decoder 로 복원을 하면 아래와 같은 이미지를 얻을 수 있습니다.
-
 ![Generated Batch](./img/ae_generated_batch.png)
+</BrowserWindow>
