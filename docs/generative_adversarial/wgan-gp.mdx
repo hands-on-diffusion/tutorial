@@ -1,102 +1,92 @@
 ---
-sidebar_position: 2
+sidebar_position: 3
 ---
 
-# Wasserstein GAN
+# Wasserstein GAN w\ Gradient Penalty
 
 import CodeDescription from "@site/src/components/CodeDescription";
 import BrowserWindow from "@site/src/components/BrowserWindow";
 
-이번 페이지에서는 기존 GAN 에서 사용하던 Mean Squared Error 를 수정해 학습 안정성을 확보한 Wasserstein GAN 에 대해서 구현합니다.
+이번 페이지에서는 기존 Wasserstein GAN 에서 Exploding and vanishing gradients 문제를 해결한 WGAN-GP 대해서 구현합니다.
 
 ## Paper
 
 <CodeDescription>
-    논문에서 제시하는 최적화 알고리즘은 다음과 같습니다.
+    논문에서 제시하는 수정된 최적화 알고리즘은 다음과 같습니다.
     <img
-        src={require("./img/wgan_algorithm.png").default}
+        src={require("./img/wgan-gp_algorithm.png").default}
         alt="Wasserstein Algorithm"
         width="70%"
     />
 </CodeDescription>
 
-기존 DCGAN 에서 사용한 학습 코드를 수도코드로 작성하면 다음과 같습니다.
+기존 WGAN 에서 사용한 학습 코드를 수도코드로 작성하면 다음과 같습니다.
 
 ```python showLineNumbers
 for epoch in range(n_epochs):
     for batch in loader:
+        for n in range(n_critic): # in paper suggested n_critic is 5
+            #
+            # 1. get discriminator loss from real data
+            #
+            ...
+            #
+            # 2. get discriminator loss from fake data
+            #
+            ...
+            #
+            # 3. get discriminator loss and update discriminator
+            #
+            ...
+            #
+            # 4. clip weight
+            #
+            ...
         #
-        # 1. get discriminator loss from real data
-        #
-        ...
-        #
-        # 2. get discriminator loss from fake data
-        #
-        ...
-        #
-        # 3. get discriminator loss and update discriminator
-        #
-        ...
-        #
-        # 4. get generator loss and update generator
+        # 5. get generator loss and update generator
         #
         ...
 ```
 
-Wasserstein 알고리즘을 Python 수도 코드로 작성하면 다음과 같습니다.
+WGAN-GP 알고리즘을 Python 수도 코드로 작성하면 다음과 같습니다.
 
 <CodeDescription>
 ```python showLineNumbers
 for epoch in range(n_epochs):
-    for step, batch in enumerate(loader):
-        #
-        # 1. get discriminator loss from real data
-        #
-        ...
-        #
-        # 2. get discriminator loss from fake data
-        #
-        ...
-        #
-        # 3. get discriminator loss and update discriminator
-        #
-        ...
-        #
-        # 4. clip weight
-        #
-        ...
-        if step % n_critic == 0: # in paper suggested n_critic is 5
+    for batch in loader:
+        for n in range(n_critic): # in paper suggested n_critic is 5
             #
-            # 5. get generator loss and update generator
+            # 1. get discriminator loss from real data
+            #
+            ...
+            #
+            # 2. get discriminator loss from fake data
+            #
+            ...
+            #
+            # 3. calculate penalty
+            #
+            ...
+            #
+            # 4. get discriminator loss and update discriminator
+            #
+            ...
+        #
+        # 5. get generator loss and update generator
+        #
+        ...
+```
+cliping 을 해주던 WGAN 과 다르게 gradient 의 패널티를 계산하는 부분이 추가되었습니다.
+```python {5-7}
+for epoch in range(n_epochs):
+    for batch in loader:
+        for n in range(n_critic): # in paper suggested n_critic is 5
+            ...
+            #
+            # 3. calculate penalty
             #
             ...
 ```
-
-학습기를 학습한 이후 파라미터를 주어진 값으로 최소와 최대값을 제한합니다.
-논문에서는 이 값을 $c=0.01$ 로 제시했습니다.
-```python {4-6}
-for epoch in range(n_epochs):
-    for step, batch in enumerate(loader):
-        ...
-        #
-        # 4. clip weight
-        #
-        ...
-```
-
-논문에서는 분류기의 학습이 $n_{critic}$ 만큼 진행 후 생성기를 학습하도록 제안했습니다.
-이를 위해서 주어진 step 의 나머지가 0이 될 때 생성기를 학습하는 분기를 선언합니다.
-```python {4}
-for epoch in range(n_epochs):
-    for step, batch in enumerate(loader):
-        ...
-        if step % n_critic == 0: # in paper suggested n_critic is 5
-            #
-            # 5. get generator loss and update generator
-            #
-            ...
-```
-
 </CodeDescription>
 
 
@@ -133,11 +123,9 @@ loader = DataLoader(dataset, batch_size=64, shuffle=True, drop_last=True)
 
 ## Model
 
-WGAN 에서는 학습 방법만 수정을 하기 때문에 모델은 DCGAN 에서 사용한 모델을 그대로 사용합니다.
-생성기와 분류기에 대한 자세한 설명은 [DCGAN](./dcgan) 페이지에서 확인할 수 있습니다.
-
-
 ### Generator
+WGAN 에서는 생성기는 DCGAN 에서 사용한 모델을 그대로 사용합니다.
+생성기에 대한 자세한 설명은 [DCGAN](./dcgan) 페이지에서 확인할 수 있습니다.
 
 ```python showLineNumbers
 import torch
@@ -186,8 +174,7 @@ class Generator(nn.Module):
 
 ### Discriminator
 
-WGAN 에서는 바뀐 학습 방법에 따라서 Discriminator 를 바꿔야 합니다.
-논문에서는 Critic 이라는 표현을 쓰지만 다른 GAN 과의 통일성을 위해서 여기서는 Discriminator 로 사용하겠습니다.
+분류기에 대한 부분을 작성합니다.
 
 ```python showLineNumbers
 class Discriminator(nn.Module):
@@ -195,22 +182,22 @@ class Discriminator(nn.Module):
         super().__init__()
         self.layer_1 = nn.Sequential(
             nn.Conv2d(num_channel, feature_dim, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(feature_dim),
+            nn.InstanceNorm2d(feature_dim),
             nn.LeakyReLU(0.2, inplace=True),
         )
         self.layer_2 = nn.Sequential(
             nn.Conv2d(feature_dim, feature_dim * 2, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(feature_dim * 2),
+            nn.InstanceNorm2d(feature_dim * 2),
             nn.LeakyReLU(0.2, inplace=True),
         )
         self.layer_3 = nn.Sequential(
             nn.Conv2d(feature_dim * 2, feature_dim * 4, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(feature_dim * 4),
+            nn.InstanceNorm2d(feature_dim * 4),
             nn.LeakyReLU(0.2, inplace=True),
         )
         self.layer_4 = nn.Sequential(
             nn.Conv2d(feature_dim * 4, feature_dim * 8, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(feature_dim * 8),
+            nn.InstanceNorm2d(feature_dim * 8),
             nn.LeakyReLU(0.2, inplace=True),
         )
 
@@ -227,34 +214,32 @@ class Discriminator(nn.Module):
         # classify
         out = self.last_layer(layer_4_out).squeeze()  # (N)
         return out
+
 ```
 
-가장 큰 차이점은 이제 마지막 layer 의 출력값에 sigmoid 를 사용하지 않습니다.
-
 <CodeDescription>
-논문에서는 다음과 같이 설명합니다.
+**No critic batch normalization**
 
-This is due to the fact that mode collapse comes from the fact that the optimal generator
-for a fixed discriminator is a sum of deltas on the points the discriminator assigns
-the highest values, as observed by [4] and highlighted in [11].
+Most prior GAN implementations [22, 23, 2] use batch normalization in both the generator and the discriminator to help stabilize training, but batch normalization
+changes the form of the discriminator’s problem from mapping a single input to a single output to
+mapping from an entire batch of inputs to a batch of outputs [23]. Our penalized training objective
+is no longer valid in this setting, since we penalize the norm of the critic’s gradient with respect
+to each input independently, and not the entire batch.
+
+- To resolve this, we simply omit batch normalization in the critic in our models, finding that they perform well without it. Our method works with normalization schemes which don’t introduce correlations between examples. 
+- In particular, werecommend layer normalization [3] as a drop-in replacement for batch normalization.
 </CodeDescription>
 
-이와 관련해서 논문에서는 BCELoss 를 사용할 때 판별자가 Real/Fake 구분이 너무 쉬워지기 때문에,
-GAN 의 고질적인 문제인 Mode Collapse 문제가 생긴다고 설명합니다.
-그래서 이러한 BCELoss 대신 Wasserstein Loss 를 제시합니다.
+- 추후 설명할 학습 과정의 gradient penalty 부분이 이미 정규화 부분을 처리함으로 BatchnNorm 을 사용하지 않습니다.
+- 대신 Layer normalization 을 제시하지만, pytorch 에서 적절한 부분이 없어서 `InstanceNorm2d` 로 대체합니다.
 
-<CodeDescription>
-- The Earth-Mover (EM) distance or Wasserstein-1
-$$
-Wℙ_{r},ℙ_{g})=KL(ℙ_{r}||ℙ_{m})+KL(ℙ_{g}||ℙ_{g})
-$$
-</CodeDescription>
+또한 WGAN 과 마찬가지로 마지막 layer 에서 sigmoid 를 사용하지 않습니다.
 
-이러한 내용 때문에 분류기의 마지막 layer 에서 sigmoid 를 사용하지 않습니다.
 
-## WGAN Train
+## WGAN-GP Train
 
 이제 위에서 작성한 수도 코드의 내용을 채워서 학습을 진행해 보겠습니다.
+
 
 ### Weight Initialization
 DCGAN 에서 적용했던 내용을 같이 설정합니다.
@@ -316,22 +301,103 @@ writer = SummaryWriter()
 
 ### Optimizer
 
-논문에서는 제시하는 RMSProp 을 사용하며 learning_rate 또한 제시된 0.00005 를 사용합니다.
+논문에서는 제시하는 Adam 을 사용하며 learning_rate는 제시된 0.0001, beta는 0.5, 0.9 를 사용합니다.
 
 ```python showLineNumbers
 import torch.optim as optim
 
-
 # optimizer
-discriminator_opt = optim.RMSprop(discriminator.parameters(), lr=0.00005)
-generator_opt = optim.RMSprop(generator.parameters(), lr=0.00005)
+discriminator_opt = optim.Adam(discriminator.parameters(), lr=0.0001, betas=(0.5, 0.9))
+generator_opt = optim.Adam(generator.parameters(), lr=0.0001, betas=(0.5, 0.9))
 ```
+
+### Gradeint Penalty
+
+이번에는 WGAN-GP 에서 GP 를 뜻하는 gradient penalty 를 계산하는 부분을 작성해야 합니다.
+
+논문에서는 해당 term 을 계산하기 위해서 다음과 같이 제시합니다.
+<CodeDescription>
+$\text{Sample real data } x\text{\textasciitilde}ℙ_{r}, \text{latent variable }z \text{\textasciitilde} p(z), \text{a random number }\epsilon\text{\textasciitilde} U[0, 1].\\$
+$\tilde{x} \leftarrow G_{\theta} (z)$  
+$\hat{x} \leftarrow \epsilon x + (1-\epsilon) \tilde{x}$  
+$L^{(i)} \leftarrow D_{w}(\tilde{x}) - D_{w}(x) + \lambda (||\nabla_{\hat{x}D_{w}(\hat{x})}||_{2}-1)^{2}$
+</CodeDescription>
+
+<CodeDescription>
+```python showLineNumbers
+def compute_gradient_penalty(discriminator, real_data, fake_data):
+    device = real_data.device
+    alpha = torch.rand(real_data.size(0), 1).to(device)
+    alpha = alpha.expand(real_data.size())
+
+    interpolates = alpha * real_data + ((1 - alpha) * fake_data)
+    interpolates = interpolates.to(device)
+    interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
+
+    disc_interpolates = discriminator(interpolates)
+    grad_outputs = torch.ones(disc_interpolates.size(), requires_grad=False).to(device)
+    gradients = torch.autograd.grad(
+        outputs=disc_interpolates,
+        inputs=interpolates,
+        grad_outputs=grad_outputs,
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True,
+    )[0]
+    gradients = gradients = gradients.view(gradients.size(0), -1)
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+    return gradient_penalty
+```
+random number 를 추출하는 부분입니다.
+```python {3,4}
+def compute_gradient_penalty(discriminator, real_data, fake_data):
+    ...
+    alpha = torch.rand(real_data.size(0), 1).to(device)
+    alpha = alpha.expand(real_data.size())
+    ...
+```
+$\hat{x}$ 를 계산합니다.
+```python {3,4}
+def compute_gradient_penalty(discriminator, real_data, fake_data):
+    ...
+    interpolates = alpha * real_data + ((1 - alpha) * fake_data)
+    interpolates = interpolates.to(device)
+    interpolates = torch.autograd.Variable(interpolates, requires_grad=True)
+    ...
+```
+
+위에서 만든 $\hat{x}$ 를 이용해 $\nabla_{\hat{x}D_{w}(\hat{x})}$ 의 Gradient 를 계산합니다.
+```python {3-12}
+def compute_gradient_penalty(discriminator, real_data, fake_data):
+    ...
+    disc_interpolates = discriminator(interpolates)
+    grad_outputs = torch.ones(disc_interpolates.size(), requires_grad=False).to(device)
+    gradients = torch.autograd.grad(
+        outputs=disc_interpolates,
+        inputs=interpolates,
+        grad_outputs=grad_outputs,
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True,
+    )[0]
+    ...
+```
+위에서 계산한 gradient 를 이용해 $(||\nabla_{\hat{x}D_{w}(\hat{x})}||_{2}-1)^{2}$ 를 계산합니다.
+```python {3-4}
+def compute_gradient_penalty(discriminator, real_data, fake_data):
+    ...
+    gradients = gradients = gradients.view(gradients.size(0), -1)
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+    ...
+```
+</CodeDescription>
 
 ### Code
 
+학습하는 코드는 기본적을 WGAN 을 따릅니다. 자세한 내용은 [WGAN](./wgan) 에서 확인하시면 됩니다.
+
 <CodeDescription>
 <BrowserWindow>
-
 ```python showLineNumbers
 from tqdm import tqdm
 
@@ -339,7 +405,7 @@ from tqdm import tqdm
 # for meta
 n_epochs = 5
 n_critic = 5
-weight_cliping_limit = 0.01
+lambda_gp = 10
 
 # for visualization
 iteration = 0
@@ -348,6 +414,7 @@ fixed_z = torch.randn((64, latent_dim, 1, 1)).to(device)
 # for iteration history
 G_loss_history = []
 D_loss_history = []
+
 
 # train code
 for epoch in range(n_epochs):
@@ -376,19 +443,16 @@ for epoch in range(n_epochs):
         fake_D_score = discriminator(fake_data)
         fake_D_loss = fake_D_score.mean()
         #
-        # 3. get discriminator loss and update discriminator
+        # 3. calculate penalty
         #
-        D_wasserstein_loss = -real_D_loss + fake_D_loss
+        gradient_penalty = compute_gradient_penalty(discriminator, x, fake_data)
+        #
+        # 4. get discriminator loss and update discriminator
+        #
+        D_wasserstein_loss = -real_D_loss + fake_D_loss + lambda_gp * gradient_penalty
         D_wasserstein_loss.backward()
         discriminator_opt.step()
-        #
-        # 4. clip weight
-        #
-        for p in discriminator.parameters():
-            p.data.clamp_(
-                -weight_cliping_limit, weight_cliping_limit
-            )  # in paper suggested c is 0.01
-        
+
         # logging
         D_loss_history += [D_wasserstein_loss.item()]
         epoch_D_loss += D_wasserstein_loss.item() * len(x) / len(loader.dataset)
@@ -419,9 +483,9 @@ for epoch in range(n_epochs):
                 generated_x_grid = make_grid(generated_x, nrow=8).numpy()
                 generated_x_grid = (generated_x_grid * 0.5) + 0.5
                 generated_x_grid = np.transpose(generated_x_grid, (1, 2, 0))
-                plt.imsave(f"wgan-step-{iteration}.png", generated_x_grid)
+                plt.imsave(f"wgan-gp-step-{iteration}.png", generated_x_grid)
             # model save
-            torch.save(generator, f"wgan-generator-step-{iteration}.pt")
+            torch.save(generator, f"wgan-gp-generator-step-{iteration}.pt")
         iteration += 1
     log_string = f"Loss at epoch {epoch + 1} - D_loss : {epoch_D_loss:.4f}, G_loss : {epoch_G_loss:.4f}"
     print(log_string)
@@ -433,186 +497,64 @@ with torch.no_grad():
     generated_x_grid = make_grid(generated_x, nrow=8).numpy()
     generated_x_grid = (generated_x_grid * 0.5) + 0.5
     generated_x_grid = np.transpose(generated_x_grid, (1, 2, 0))
-    plt.imsave(f"wgan-step-{iteration}.png", generated_x_grid)
-torch.save(generator, f"wgan-generator-step-{iteration}.pt")
+    plt.imsave(f"wgan-gp-step-{iteration}.png", generated_x_grid)
+torch.save(generator, f"wgan-gp-generator-step-{iteration}.pt")
 ```
 ```python
-poch 1/5:   0%|          | 0/2543 [00:00<?, ?it/s]
-Epoch 1/5: 100%|██████████| 2543/2543 [06:45<00:00,  6.28it/s]
-Loss at epoch 1 - D_loss : -0.2854, G_loss : -0.3558
-Epoch 2/5: 100%|██████████| 2543/2543 [06:21<00:00,  6.67it/s]
-Loss at epoch 2 - D_loss : -0.2878, G_loss : -0.3582
-Epoch 3/5: 100%|██████████| 2543/2543 [06:29<00:00,  6.53it/s]
-Loss at epoch 3 - D_loss : -0.2777, G_loss : -0.3576
-Epoch 4/5: 100%|██████████| 2543/2543 [06:17<00:00,  6.73it/s]
-Loss at epoch 4 - D_loss : -0.2553, G_loss : -0.3705
-Epoch 5/5: 100%|██████████| 2543/2543 [06:20<00:00,  6.69it/s]
-Loss at epoch 5 - D_loss : -0.2351, G_loss : -0.3805
+Epoch 1/5: 100%|██████████| 2543/2543 [03:49<00:00, 11.09it/s]
+Loss at epoch 1 - D_loss : -478.6814, G_loss : 267.3584
+Epoch 2/5: 100%|██████████| 2543/2543 [03:46<00:00, 11.25it/s]
+Loss at epoch 2 - D_loss : -1605.9598, G_loss : 1060.6701
+Epoch 3/5: 100%|██████████| 2543/2543 [03:45<00:00, 11.27it/s]
+Loss at epoch 3 - D_loss : -3825.8270, G_loss : 2039.2957
+Epoch 4/5: 100%|██████████| 2543/2543 [03:46<00:00, 11.22it/s]
+Loss at epoch 4 - D_loss : -5327.3705, G_loss : 2883.1035
+Epoch 5/5: 100%|██████████| 2543/2543 [03:45<00:00, 11.28it/s]
+Loss at epoch 5 - D_loss : -6928.6919, G_loss : 3699.7643
 ```
 </BrowserWindow>
 
+gradient penalty 를 계산합니다.
 
-다음으로 계산할 것은 실제 이미지를 분류하는 부분 입니다.
-앞서 Vanila GAN 에서 사용한것과 다르게 데이터 로더에서 실제 이미지를 분류기의 확률값의 평균을 loss 로 이용합니다
-
-```python {5,9-11}
-# train code
-for epoch in range(n_epochs):
-    for step, batch in enumerate(tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}")):
-        ...
-        x = batch[0].to(device)
-        #
-        # 1. get discriminator loss from real data
-        #
-        discriminator_opt.zero_grad()
-        real_D_score = discriminator(x)
-        real_D_loss = real_D_score.mean()
-        ...
-```
-
-이어서 임의의 latent z 를 선언하고 생성기를 통해서 가짜 이미지를 만듭니다.
-이후 생성된 이미지를 분류기의 확률값의 평균을 계산합니다.
-
-```python {8-11}
+```python {8}
 # train code
 for epoch in range(n_epochs):
     for step, batch in enumerate(tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}")):
         ...
         #
-        # 2. get discriminator loss from fake data
+        # 3. calculate penalty
         #
-        z = torch.randn((batch_size, latent_dim, 1, 1)).to(device)
-        fake_data = generator(z)
-        fake_D_score = discriminator(fake_data)
-        fake_D_loss = fake_D_score.mean()
+        gradient_penalty = compute_gradient_penalty(discriminator, x, fake_data)
         ...
 ```
 
-논문에서는 분류기의 weight 를 업데이트하는 수식은 다음과 같습니다.
-
-$$
-g_{w}\leftarrow\nabla_{w}\lbrack\frac{1}{m}\textstyle\sum_{i=1}^{m}f_{w}(x^{(i)})-\frac{1}{m}\textstyle\sum_{i=1}^{m}f_{w}(g_{\theta}(z^{(i)}))
-$$
-
-그렇기 때문에 두 loss 를 합쳤던 DCGAN 과 다르게 진짜 이미지의 확률값에서 생성된 이미지의 확률값을 뺀 loss 를 이용해 업데이트를 합니다.
-
-```python {8-11}
-# train code
-for epoch in range(n_epochs):
-    for step, batch in enumerate(tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}")):
-            ...
-            #
-            # 3. get discriminator loss and update discriminator
-            #
-            D_wasserstein_loss = real_D_loss - fake_D_loss
-            D_wasserstein_loss.backward()
-            discriminator_opt.step()
-            critic_D_wasserstein_loss += D_wasserstein_loss.item()
-            ...
-```
-
-마지막으로 업데이트된 분류기의 파라미터를 clip 합니다.
-$$
-w\leftarrow\text{clip}(w,-c,c)
-$$
-```python {4,13-16}
+discriminator 를 학습할 loss 를 생성합니다. 기존 WGAN 과 다른 점은 gradeint penalty 가 추가되었습니다.
+이때 lambda_gp 는 논문에서 제시한 10을 사용합니다.
+```python {4,13}
 # for meta
 n_epochs = 5
 n_critic = 5
-weight_cliping_limit = 0.01
+lambda_gp = 10
 
 # train code
 for epoch in range(n_epochs):
     for step, batch in enumerate(tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}")):
         ...
         #
-        # 4. clip weight
+        # 4. get discriminator loss and update discriminator
         #
-        for p in discriminator.parameters():
-            p.data.clamp_(
-                -weight_cliping_limit, weight_cliping_limit
-            )  # in paper suggested c is 0.01
-        ...
-```
-
-분류기 학습의 결과물을 logging 하기 위한 코드입니다.
-
-```python {6-8}
-# train code
-for epoch in range(n_epochs):
-    for step, batch in enumerate(tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}")):
-        ...
-        # logging
-        D_loss_history += [D_wasserstein_loss.item()]
-        epoch_D_loss += D_wasserstein_loss.item() * len(x) / len(loader.dataset)
-        writer.add_scalar("Loss/discriminator", D_wasserstein_loss, iteration)
-        ...
-```
-
-생성기는 분류기를 $n_{critic}$ 만큼 수행 후 업데이트 합니다.
-
-논문에서는 생성기의 weight 를 업데이트하는 수식은 다음과 같습니다.
-
-$$
-g_{w}\leftarrow-\nabla_{w}\frac{1}{m}\textstyle\sum_{i=1}^{m}f_{w}(g_{\theta}(z^{(i)}))
-$$
-
-이를 위해서 생성된 이미지를 분류기로 분류하고 이에 대한 loss 를 앞선 분류기에서 생성된 이미지에 대해서 더한것과 반대로 평균에 -1 를 곱해서 계산합니다.
-이를 통해서 분류기를 속이기 위한 gradient 값을 계산해서 생성기를 업데이트합니다.
-
-```python {8-20}
-# train code
-for epoch in range(n_epochs):
-    for step, batch in enumerate(tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}")):
-        ...
-        #
-        # 5. get generator loss and update generator after n_critic
-        #
-        if step % n_critic == 0:
-            generator_opt.zero_grad()
-            z = torch.randn((batch_size, latent_dim, 1, 1)).to(device)
-            generated_data = generator(z)
-            generate_D_score = discriminator(generated_data)
-            G_loss = -generate_D_score.mean()
-            G_loss.backward()
-            generator_opt.step()
-            
-            # logging
-            G_loss_history += [G_loss.item()]
-            epoch_G_loss += G_loss.item() * len(x) / len(loader.dataset) * n_critic
-            writer.add_scalar("Loss/generator", G_loss, iteration)
-        ...
-```
-
-아래 코드는 고정된 z 에 대해서 모델이 학습하면서 생성하는 그림이 어떻게 바뀌는지 저장하기 위한 코드입니다.
-```python {2,11-19}
-# for visualization
-iteration = 0
-fixed_z = torch.randn((64, latent_dim, 1, 1)).to(device)
-
-# train code
-for epoch in range(n_epochs):
-    ...
-    for batch in tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}"):
-        ...
-        # iteration checkpoint
-        if iteration % 2000 == 0:
-            # visualization
-            with torch.no_grad():
-                generated_x = generator(fixed_z)
-                generated_x = generated_x.detach().cpu()
-                generated_x_grid = make_grid(generated_x, nrow=8).numpy()
-                generated_x_grid = (generated_x_grid * 0.5) + 0.5
-                generated_x_grid = np.transpose(generated_x_grid, (1, 2, 0))
-                plt.imsave(f"wgan-step-{iteration}.png", generated_x_grid)
+        D_wasserstein_loss = -real_D_loss + fake_D_loss + lambda_gp * gradient_penalty
+        D_wasserstein_loss.backward()
+        discriminator_opt.step()
         ...
 ```
 </CodeDescription>
 
-### Loss history
+### Train loss
+
 Tensorboard 에 로깅된 학습 정보를 확인하면 다음과 같습니다.
 
-![Train history](./img/wgan_train_history.png)
+![Train history](./img/wgan-gp_train_history.png)
 
 ### Visualize
 
@@ -622,10 +564,10 @@ Tensorboard 에 로깅된 학습 정보를 확인하면 다음과 같습니다.
 ```python showLineNumbers
 import os
 
-img_list = list(sorted(filter(lambda x: x.startswith("wgan-step"), os.listdir("."))))
+img_list = list(sorted(filter(lambda x: x.startswith("wgan-gp-step"), os.listdir("."))))
 step_filename = {}
-for fname in filter(lambda x: x.startswith("wgan-step"), os.listdir(".")):
-    key = int(fname.replace("wgan-step-", "").replace(".png", ""))
+for fname in filter(lambda x: x.startswith("wgan-gp-step"), os.listdir(".")):
+    key = int(fname.replace("wgan-gp-step-", "").replace(".png", ""))
     step_filename[key] = fname
 
 nrows = (len(img_list) // 3) + 1
@@ -640,7 +582,7 @@ for idx, key in enumerate(sorted(step_filename)):
 
 plt.tight_layout()
 ```
-![Train Generated Data](./img/wgan_train_gen.png)
+![Train Generated Data](./img/wgan-gp_train_gen.png)
 </BrowserWindow>
 
 ## Generation
@@ -663,11 +605,11 @@ plt.figure(figsize=(8, 8))
 plt.title("Generated batch")
 plt.imshow(np.transpose(generated_x_grid, (1, 2, 0)))
 ```
-![Eval Generated Batch](./img/wgan_eval_gen.png)
+![Eval Generated Batch](./img/wgan-gp_eval_gen.png)
 </BrowserWindow>
 
 ## References
 
-- https://arxiv.org/pdf/1701.07875
+- https://arxiv.org/pdf/1704.00028
 - https://jonathan-hui.medium.com/gan-wasserstein-gan-wgan-gp-6a1a2aa1b490
 - https://github.com/Zeleni9/pytorch-wgan

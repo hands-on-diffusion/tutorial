@@ -652,6 +652,11 @@ for epoch in range(n_epochs):
 ```
 </CodeDescription>
 
+### Loss history
+Tensorboard 에 로깅된 학습 정보를 확인하면 다음과 같습니다.
+
+![Train history](./img/dcgan_train_hitsory.png)
+
 ### Visualize
 
 학습을 하면서 생성기가 어떻게 이미지를 생성하는 지 확인해 보겠습니다.
@@ -674,11 +679,6 @@ plt.tight_layout()
 ```
 ![Train Generated Data](./img/dcgan_train_gen.png)
 </BrowserWindow>
-
-### Loss history
-Tensorboard 에 로깅된 학습 정보를 확인하면 다음과 같습니다.
-
-![Train history](./img/dcgan_train_hitsory.png)
 
 ## Generation
 
