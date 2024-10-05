@@ -24,28 +24,28 @@ import BrowserWindow from "@site/src/components/BrowserWindow";
 
 ```python showLineNumbers
 for epoch in range(n_epochs):
-    for batch in loader:
-        for n in range(n_critic): # in paper suggested n_critic is 5
-            #
-            # 1. get discriminator loss from real data
-            #
-            ...
-            #
-            # 2. get discriminator loss from fake data
-            #
-            ...
-            #
-            # 3. get discriminator loss and update discriminator
-            #
-            ...
-            #
-            # 4. clip weight
-            #
-            ...
+    for step, batch in enumerate(loader):
         #
-        # 5. get generator loss and update generator
+        # 1. get discriminator loss from real data
         #
         ...
+        #
+        # 2. get discriminator loss from fake data
+        #
+        ...
+        #
+        # 3. get discriminator loss and update discriminator
+        #
+        ...
+        #
+        # 4. clip weight
+        #
+        ...
+        if step % n_critic == 0: # in paper suggested n_critic is 5
+            #
+            # 5. get generator loss and update generator
+            #
+            ...
 ```
 
 WGAN-GP 알고리즘을 Python 수도 코드로 작성하면 다음과 같습니다.
@@ -53,28 +53,28 @@ WGAN-GP 알고리즘을 Python 수도 코드로 작성하면 다음과 같습니
 <CodeDescription>
 ```python showLineNumbers
 for epoch in range(n_epochs):
-    for batch in loader:
-        for n in range(n_critic): # in paper suggested n_critic is 5
-            #
-            # 1. get discriminator loss from real data
-            #
-            ...
-            #
-            # 2. get discriminator loss from fake data
-            #
-            ...
-            #
-            # 3. calculate penalty
-            #
-            ...
-            #
-            # 4. get discriminator loss and update discriminator
-            #
-            ...
+    for step, batch in enumerate(loader):
         #
-        # 5. get generator loss and update generator
+        # 1. get discriminator loss from real data
         #
         ...
+        #
+        # 2. get discriminator loss from fake data
+        #
+        ...
+        #
+        # 3. calculate penalty
+        #
+        ...
+        #
+        # 4. get discriminator loss and update discriminator
+        #
+        ...
+        if step % n_critic == 0: # in paper suggested n_critic is 5
+            #
+            # 5. get generator loss and update generator
+            #
+            ...
 ```
 cliping 을 해주던 WGAN 과 다르게 gradient 의 패널티를 계산하는 부분이 추가되었습니다.
 ```python {5-7}
