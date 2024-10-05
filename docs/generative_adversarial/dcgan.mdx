@@ -9,30 +9,6 @@ import BrowserWindow from "@site/src/components/BrowserWindow";
 
 이번 페이지에서는 CNN 을 이용해 이미지 생성 모델의 시작을 알린 DCGAN (Deep Convolutional GAN) 을 이용해 생성형 모델을 학습하는 방법에 대해서 설명합니다.
 
-## Dataset
-
-우선 튜토리얼에 들어가기에 앞서 사용할 데이터셋을 선언합니다.
-데이터셋에 대한 자세한 설명은 [CelebA](../dataset/celeba) 페이지에서 확인할 수 있습니다.
-
-```python showLineNumbers
-import torchvision.transforms as T
-from torchvision.datasets.celeba import CelebA
-from torch.utils.data import DataLoader
-
-transform = T.Compose(
-    [
-        T.Resize(64),
-        T.CenterCrop(64),
-        T.ToTensor(),
-        T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    ]
-)
-dataset = CelebA(
-    "./datasets", download=True, transform=transform
-)
-loader = DataLoader(dataset, batch_size=128, shuffle=True)
-```
-
 
 ## Paper
 
@@ -47,7 +23,63 @@ Architecture guidelines for stable Deep Convolutional GANs
 - Use LeakyReLU activation in the discriminator for all layers
 </CodeDescription>
 
-이제 논문에서 제시한 내용에 맞춰서 모델을 작성해 보겠습니다.
+기본적인 학습방법은 Generative Adversarial Networks 논문을 따릅니다.
+이를 위한 파이썬 수도 코드를 작성하면 아래와 같습니다.
+
+
+```python
+for epoch in range(n_epochs):
+    for batch in loader:
+        #
+        # 1. get discriminator loss from real data
+        #
+        ...
+        #
+        # 2. get discriminator loss from fake data
+        #
+        ...
+        #
+        # 3. get discriminator loss and update discriminator
+        #
+        ...
+        #
+        # 4. get generator loss and update generator
+        #
+        ...
+```
+
+이제부터 해당하는 내용들을 채워 보겠습니다.
+
+## Dataset
+
+우선 튜토리얼에 들어가기에 앞서 사용할 데이터셋을 선언합니다.
+데이터셋에 대한 자세한 설명은 [CelebA](../dataset/celeba) 페이지에서 확인할 수 있습니다.
+
+<CodeDescription>
+All models are trained with mini-batch stochastic gradient descent (SGD) with a mini-batch size of 128.
+</CodeDescription>
+
+논문에서는 배치 사이즈를 128 을 사용해 학습했기 때문에 `batch_size=128` 로 주겠습니다.
+
+```python showLineNumbers
+import torchvision.transforms as T
+from torchvision.datasets.celeba import CelebA
+from torch.utils.data import DataLoader
+from torchvision.utils import make_grid
+
+transform = T.Compose(
+    [
+        T.Resize(64),
+        T.CenterCrop(64),
+        T.ToTensor(),
+        T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ]
+)
+dataset = CelebA(
+    "./datasets", download=True, transform=transform
+)
+loader = DataLoader(dataset, batch_size=128, shuffle=True)
+```
 
 ## Generator
 
@@ -105,10 +137,10 @@ class Generator(nn.Module):
 
 > Architecture guidelines for stable Deep Convolutional GANs
 >
-> -   Replace any pooling layers with fractional-strided convolutions (generator).
-> -   Use batchnorm in the generator.
-> -   Remove fully connected hidden layers for deeper architectures.
-> -   Use ReLU activation in generator for all layers except for the output, which uses Tanh.
+> - Replace any pooling layers with fractional-strided convolutions (generator).
+> - Use batchnorm in the generator.
+> - Remove fully connected hidden layers for deeper architectures.
+> - Use ReLU activation in generator for all layers except for the output, which uses Tanh.
 
 ### Execution
 
@@ -151,6 +183,7 @@ with torch.no_grad(): # decoding
 
 <BrowserWindow>
 ```python showLineNumbers
+import numpy as np
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
 
@@ -338,32 +371,65 @@ _ = discriminator.to(device)
 _ = generator.to(device)
 ```
 
-### Code
+### Logger
+학습 과정을 tensorboard 에 저장하기 위한 writer 입니다.
 
-아래 코드를 작성 후 학습을 진행합니다.
+```python showLineNumbers
+from torch.utils.tensorboard import SummaryWriter
+# tensorboard logger
+writer = SummaryWriter()
+```
 
-<BrowserWindow>
+### Loss
+
+GAN 모델의 학습은 분류기의 분류 결과로 부터 시작됩니다.
+이 때 진짜로 구분은 1 가짜로 구분은 0으로 하는 이진 분류로서 BinaryCrossEntropy 를 이용해 계산합니다.
+```python showLineNumbers
+# loss function
+bce_loss_fn = nn.BCELoss()
+```
+
+### Optimizer
+
+논문에서는 SGD 를 Optimizer 로 제시했지만 Adam 이 좀 더 안정적인 학습을 할 수 있기에 Adam 으로 선언합니다.
+
 ```python showLineNumbers
 import torch.optim as optim
-import torch.functional as F
+
+
+# optimizer
+discriminator_opt = optim.Adam(
+    discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999)
+)
+generator_opt = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+```
+아래 코드를 작성 후 학습을 진행합니다.
+
+### Code
+
+<CodeDescription>
+<BrowserWindow>
+```python showLineNumbers
 from tqdm import tqdm
 
 
-bce_loss_fn = nn.BCELoss()
-
-discriminator_opt = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-generator_opt = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-
+# meta data
 n_epochs = 5
-fixed_z = torch.randn((128, latent_dim, 1, 1)).to(device)
-generated_x_grids = []
 
-idx = 0
+# for visualization
+iteration = 0
+fixed_z = torch.randn((64, latent_dim, 1, 1)).to(device)
+
+# for iteration history
+G_loss_history = []
+D_loss_history = []
+
+# train code
 for epoch in range(n_epochs):
     epoch_G_loss = 0.0
     epoch_D_loss = 0.0
 
-    for step, batch in enumerate(tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}")):
+    for batch in tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}"):
         generator.train()
         discriminator.train()
 
@@ -408,32 +474,183 @@ for epoch in range(n_epochs):
         G_loss.backward()
         generator_opt.step()
 
+        # iteration logging
+        G_loss_history += [G_loss.item()]
+        D_loss_history += [D_loss.item()]
+
         epoch_D_loss += D_loss.item() * len(x) / len(loader.dataset)
         epoch_G_loss += G_loss.item() * len(x) / len(loader.dataset)
 
-        if idx % 500 == 0:
+        writer.add_scalar("Loss/generator", G_loss, iteration)
+        writer.add_scalar("Loss/discriminator", D_loss, iteration)
+
+        # iteration checkpoint
+        if iteration % 1000 == 0:
+            # visualization
             with torch.no_grad():
                 generated_x = generator(fixed_z)
-                generated_x = generated_data.detach().cpu()
-                generated_x_grid = make_grid(generated_x, nrow=12).numpy()
-                generated_x_grids += [generated_x_grid]
-        idx += 1
+                generated_x = generated_x.detach().cpu()
+                generated_x_grid = make_grid(generated_x, nrow=8).numpy()
+                generated_x_grid = (generated_x_grid * 0.5) + 0.5
+                generated_x_grid = np.transpose(generated_x_grid, (1, 2, 0))
+                plt.imsave(f"dcgan-step-{iteration}.png", generated_x_grid)
+            # model save
+            torch.save(generator, f"dcgan-generator-step-{iteration}.pt")
+        iteration += 1
     log_string = f"Loss at epoch {epoch + 1} - D_loss : {epoch_D_loss:.4f}, G_loss : {epoch_G_loss:.4f}"
     print(log_string)
+
+# save last model
+with torch.no_grad():
+    generated_x = generator(fixed_z)
+    generated_x = generated_x.detach().cpu()
+    generated_x_grid = make_grid(generated_x, nrow=8).numpy()
+    generated_x_grid = (generated_x_grid * 0.5) + 0.5
+    generated_x_grid = np.transpose(generated_x_grid, (1, 2, 0))
+    plt.imsave(f"dcgan-step-{iteration}.png", generated_x_grid)
+torch.save(generator, f"dcgan-generator-step-{iteration}.pt")
 ```
 ```python
-Epoch 1/5: 100%|██████████| 1272/1272 [03:19<00:00,  6.38it/s]
-Loss at epoch 1 - D_loss : 0.4746, G_loss : 22.3682
-Epoch 2/5: 100%|██████████| 1272/1272 [03:17<00:00,  6.44it/s]
-Loss at epoch 2 - D_loss : 0.8027, G_loss : 3.2933
-Epoch 3/5: 100%|██████████| 1272/1272 [03:16<00:00,  6.46it/s]
-Loss at epoch 3 - D_loss : 0.7421, G_loss : 2.9102
-Epoch 4/5: 100%|██████████| 1272/1272 [03:15<00:00,  6.50it/s]
-Loss at epoch 4 - D_loss : 0.8145, G_loss : 2.3047
-Epoch 5/5: 100%|██████████| 1272/1272 [03:16<00:00,  6.47it/s]
-Loss at epoch 5 - D_loss : 0.8559, G_loss : 2.0900
+Epoch 1/5: 100%|██████████| 1272/1272 [03:20<00:00,  6.34it/s]
+Loss at epoch 1 - D_loss : 0.6342, G_loss : 7.3766
+Epoch 2/5: 100%|██████████| 1272/1272 [03:18<00:00,  6.41it/s]
+Loss at epoch 2 - D_loss : 0.6417, G_loss : 3.8137
+Epoch 3/5: 100%|██████████| 1272/1272 [03:18<00:00,  6.42it/s]
+Loss at epoch 3 - D_loss : 0.6967, G_loss : 2.9740
+Epoch 4/5: 100%|██████████| 1272/1272 [03:17<00:00,  6.44it/s]
+Loss at epoch 4 - D_loss : 0.7547, G_loss : 2.5252
+Epoch 5/5: 100%|██████████| 1272/1272 [03:18<00:00,  6.41it/s]
+Loss at epoch 5 - D_loss : 0.7395, G_loss : 2.4700
 ```
 </BrowserWindow>
+
+제일 처음에는 데이터 로더에서 실제 이미지를 분류기를 통해서 1로 분류하는 loss 를 계산합니다.
+
+```python {6,10-13}
+# train code
+for epoch in range(n_epochs):
+    ...
+    for batch in tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}"):
+        ...
+        x = batch[0].to(device)
+        #
+        # 1. get discriminator loss from real data
+        #
+        discriminator_opt.zero_grad()
+        real_D_score = discriminator(x)
+        real_target = torch.ones_like(real_D_score).to(device)
+        real_D_loss = bce_loss_fn(real_D_score, real_target)
+        ...
+```
+
+이어서 임의의 latent z 를 선언하고 생성기를 통해서 가짜 이미지를 만듭니다.
+이후 생성된 이미지를 분류기가 0으로 분류하는 loss 를 계산합니다.
+
+```python {9-16}
+# train code
+for epoch in range(n_epochs):
+    ...
+    for batch in tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}"):
+        ...
+        #
+        # 2. get discriminator loss from fake data
+        #
+        z = torch.randn((batch_size, latent_dim, 1, 1)).to(device)
+        fake_data = generator(z)
+
+        fake_D_score = discriminator(fake_data)
+        fake_target = torch.zeros_like(fake_D_score).to(device)
+        fake_D_loss = bce_loss_fn(fake_D_score, fake_target)
+        ...
+```
+
+두 loss 를 합쳐서 분류기가 생성된 이미지와 실제 이미지를 잘 구분할 수 있도록 학습합니다.
+
+```python {9-11}
+# train code
+for epoch in range(n_epochs):
+    ...
+    for batch in tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}"):
+        ...
+        #
+        # 3. get discriminator loss and update discriminator
+        #
+        D_loss = real_D_loss + fake_D_loss
+        D_loss.backward()
+        discriminator_opt.step()
+        ...
+```
+
+앞선 과정에서 분류기에 대한 부분을 학습했다면 이제 생성기가 더 잘 생성할 수 있도록 학습해야 합니다.
+이를 위해서 생성된 이미지를 분류기로 분류하고 이에 대한 loss 를 앞선 분류기에서 생성된 이미지에 대해서 0으로 준 것과 반대로 1로 설정합니다.
+이를 통해서 분류기를 속이기 위한 gradient 값을 계산해서 생성기를 업데이트합니다.
+
+```python {9-19}
+# train code
+for epoch in range(n_epochs):
+    ...
+    for batch in tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}"):
+        ...
+        #
+        # 4. get generator loss and update generator
+        #
+        generator_opt.zero_grad()
+        z = torch.randn((batch_size, latent_dim, 1, 1)).to(device)
+        generated_data = generator(z)
+
+        generate_D_score = discriminator(generated_data)
+        generate_target = torch.ones_like(generate_D_score).to(device)
+
+        G_loss = bce_loss_fn(generate_D_score, generate_target)
+
+        G_loss.backward()
+        generator_opt.step()
+        ...
+```
+
+위에서 학습의 결과물을 logging 하기 위한 코드입니다.
+```python {7-14}
+# train code
+for epoch in range(n_epochs):
+    ...
+    for batch in tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}"):
+        ...
+        # iteration logging
+        G_loss_history += [G_loss.item()]
+        D_loss_history += [D_loss.item()]
+
+        epoch_D_loss += D_loss.item() * len(x) / len(loader.dataset)
+        epoch_G_loss += G_loss.item() * len(x) / len(loader.dataset)
+
+        writer.add_scalar("Loss/generator", G_loss, iteration)
+        writer.add_scalar("Loss/discriminator", D_loss, iteration)
+        ...
+```
+
+아래 코드는 고정된 z 에 대해서 모델이 학습하면서 생성하는 그림이 어떻게 바뀌는지 저장하기 위한 코드입니다.
+```python {1-5,12-19}
+# for visualization
+iteration = 0
+fixed_z = torch.randn((64, latent_dim, 1, 1)).to(device)
+
+# train code
+for epoch in range(n_epochs):
+    ...
+    for batch in tqdm(loader, desc=f"Epoch {epoch + 1}/{n_epochs}"):
+        ...
+        # iteration checkpoint
+        if iteration % 1000 == 0:
+            # visualization
+            with torch.no_grad():
+                generated_x = generator(fixed_z)
+                generated_x = generated_x.detach().cpu()
+                generated_x_grid = make_grid(generated_x, nrow=8).numpy()
+                generated_x_grid = (generated_x_grid * 0.5) + 0.5
+                generated_x_grid = np.transpose(generated_x_grid, (1, 2, 0))
+                plt.imsave(f"dcgan-step-{iteration}.png", generated_x_grid)
+        ...
+```
+</CodeDescription>
 
 ### Visualize
 
@@ -441,17 +658,27 @@ Loss at epoch 5 - D_loss : 0.8559, G_loss : 2.0900
 
 <BrowserWindow>
 ```python showLineNumbers
-fig, axes = plt.subplots(nrows=len(generated_x_grids), figsize=(10, 50))
-for idx, generated_x_grid in enumerate(generated_x_grids):
-    # make data range to 0~1
-    generated_x_grid = (generated_x_grid * 0.5) + 0.5
-    axes[idx].set_title(f"Iteration: {idx*500}")
-    axes[idx].axis("off")
-    axes[idx].imshow(np.transpose(generated_x_grid, (1, 2, 0)))
+import os
+
+img_list = list(sorted(filter(lambda x: x.startswith("dcgan-step"), os.listdir("."))))
+nrows = (len(img_list) // 3) + 1
+
+fig, axes = plt.subplots(ncols=3, nrows=nrows, figsize=(5 * nrows, 15))
+for idx, fname in enumerate(img_list):
+    array = plt.imread(fname)
+    axes[idx // 3, idx % 3].imshow(array)
+    axes[idx // 3, idx % 3].axis("off")
+    axes[idx // 3, idx % 3].set_title(fname.replace(".png", ""))
+
 plt.tight_layout()
 ```
 ![Train Generated Data](./img/dcgan_train_gen.png)
 </BrowserWindow>
+
+### Loss history
+Tensorboard 에 로깅된 학습 정보를 확인하면 다음과 같습니다.
+
+![Train history](./img/dcgan_train_hitsory.png)
 
 ## Generation
 
@@ -462,11 +689,11 @@ plt.tight_layout()
 <BrowserWindow>
 ```python showLineNumbers
 generator.eval()
-with torch.no_grad():
-    random_z = torch.randn((128, latent_dim, 1, 1)).to(device)
+with torch.no_grad():    
+    random_z = torch.randn((64, latent_dim, 1, 1)).to(device)
     generated_x = generator(random_z)
 
-generated_x_grid = make_grid(generated_x, nrow=12).cpu().numpy()
+generated_x_grid = make_grid(generated_x, nrow=8).cpu().numpy()
 # make data range to 0~1
 generated_x_grid = (generated_x_grid * 0.5) + 0.5
 plt.figure(figsize=(8, 8))
@@ -478,5 +705,5 @@ plt.imshow(np.transpose(generated_x_grid, (1, 2, 0)))
 
 ## References
 
--   https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html#implementation
--   https://arxiv.org/pdf/1511.06434
+- https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html#implementation
+- https://arxiv.org/pdf/1511.06434
