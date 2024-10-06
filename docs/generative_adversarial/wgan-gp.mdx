@@ -312,7 +312,7 @@ discriminator_opt = optim.Adam(discriminator.parameters(), lr=0.0001, betas=(0.5
 generator_opt = optim.Adam(generator.parameters(), lr=0.0001, betas=(0.5, 0.9))
 ```
 
-### Gradeint Penalty
+### Gradient Penalty
 
 이번에는 WGAN-GP 에서 GP 를 뜻하는 gradient penalty 를 계산하는 부분을 작성해야 합니다.
 
@@ -383,7 +383,7 @@ def compute_gradient_penalty(discriminator, real_data, fake_data):
     )[0]
     ...
 ```
-위에서 계산한 gradient 를 이용해 $(||\nabla_{\hat{x}D_{w}(\hat{x})}||_{2}-1)^{2}$ 를 계산합니다.
+위에서 계산한 gradient 를 이용해 $(||\nabla_{\hat{x}}D_{w}(\hat{x})||_{2}-1)^{2}$ 를 계산합니다.
 ```python {3-4}
 def compute_gradient_penalty(discriminator, real_data, fake_data):
     ...
@@ -529,8 +529,9 @@ for epoch in range(n_epochs):
         ...
 ```
 
-discriminator 를 학습할 loss 를 생성합니다. 기존 WGAN 과 다른 점은 gradeint penalty 가 추가되었습니다.
+discriminator 를 학습할 loss 를 생성합니다. 기존 WGAN 과 다른 점은 gradient penalty 가 추가되었습니다.
 이때 lambda_gp 는 논문에서 제시한 10을 사용합니다.
+
 ```python {4,13}
 # for meta
 n_epochs = 5
