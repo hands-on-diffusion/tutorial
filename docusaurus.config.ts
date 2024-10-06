@@ -7,7 +7,7 @@ import rehypeKatex from 'rehype-katex';
 
 const config: Config = {
   title: 'Hands on diffusion',
-  tagline: 'Dinosaurs are cool',
+  tagline: '',
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here
@@ -95,9 +95,9 @@ const config: Config = {
     // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',
     navbar: {
-      title: 'Hands on diffusion',
+      title: 'Hands-on diffusion',
       logo: {
-        alt: 'My Site Logo',
+        alt: 'HD Logo',
         src: 'img/logo.svg',
       },
       items: [
@@ -107,7 +107,7 @@ const config: Config = {
           position: 'left',
           label: 'Tutorial',
         },
-        {to: '/blog', label: 'Blog', position: 'left'},
+        // {to: '/blog', label: 'Blog', position: 'left'},
         {
           href: 'https://github.com/hands-on-diffusion/tutorial',
           label: 'GitHub',
@@ -158,7 +158,7 @@ const config: Config = {
         //   ],
         // },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Hands on diffusion, Inc. Built with Docusaurus.`,
+      copyright: `Copyright © 2024-${new Date().getFullYear()} Hands on diffusion, Inc. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,
