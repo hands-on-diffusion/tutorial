@@ -460,7 +460,7 @@ class GeneratorBlock(nn.Module):
 
 <img
     src={require("./img/pggan_rgb.png").default}
-    alt="Generagor Architecture"
+    alt="Fade In - To RGB"
     width="50%"
 />
 When new layers are added to the networks, we fade them in smoothly, as illustrated in Figure 2.
@@ -523,14 +523,22 @@ layer_1_out.shape, to_rgb(layer_1_out).shape
 
 ### Class Generator 
 
-
 작성할 모델의 아키텍쳐는 논문에서 제시한 형태를 따라갑니다. 튜토리얼에서는 CelebA 데이터의 64x64 까지만 작성합니다.
 
 <img
     src={require("./img/pggan_gen_arch.png").default}
-    alt="Generagor Architecture"
+    alt="Generator Architecture"
     width="50%"
 />
+
+이를 전체 구성으로 그리면 다음과 같습니다.
+
+<img
+    src={require("./img/pggan-gen.png").default}
+    alt="Discriminator Architecture"
+    width="90%"
+/>
+[출처: https://towardsdatascience.com/progan-how-nvidia-generated-images-of-unprecedented-quality-51c98ec2cbd2]
 
 <CodeDescription>
 ```python showLineNumbers
@@ -538,6 +546,7 @@ class Generator(nn.Module):
     def __init__(self):
         super().__init__()
 
+        self.latent_normalizer = PixelNorm()
         self.up_sampler = nn.Upsample(scale_factor=2, mode="nearest")
         self.layer_1 = nn.Sequential(
             nn.ConvTranspose2d(512, 512, 4, 1, 0),
@@ -557,7 +566,8 @@ class Generator(nn.Module):
 
     def forward(self, z, alpha, step):
         # first layer
-        layer_out = self.layer_1(z)  # (N, 512, 4, 4)
+        normalized_z = self.latent_normalizer(z)
+        layer_out = self.layer_1(normalized_z)
 
         # middle layers
         for layer_num in range(1, step):
@@ -864,7 +874,7 @@ rgb_z.shape
 
 <img
     src={require("./img/pggan_rgb.png").default}
-    alt="Generagor Architecture"
+    alt="Fade In From RGB"
     width="50%"
 />
 
@@ -1015,6 +1025,23 @@ def minibatch_stddev(x):  ## NxCxHxW -> N -> 1 -> Nx1xHxW
 ```
 
 ### Class Discirminator
+
+논문에서 제시한 discriminator 의 구조는 다음과 같습니다.
+
+<img
+    src={require("./img/pggan_disc_arch.png").default}
+    alt="Discriminator Architecture"
+    width="50%"
+/>
+
+이를 전체 구성으로 그리면 다음과 같습니다.
+
+<img
+    src={require("./img/pggan-disc.png").default}
+    alt="Discriminator Architecture"
+    width="90%"
+/>
+[출처: https://towardsdatascience.com/progan-how-nvidia-generated-images-of-unprecedented-quality-51c98ec2cbd2]
 
 ```python showLineNumbers
 class Discriminator(nn.Module):
@@ -1620,4 +1647,6 @@ plt.imshow(np.transpose(generated_x_grid, (1, 2, 0)))
 ## References
 
 - https://arxiv.org/pdf/1710.10196
+- https://github.com/tkarras/progressive_growing_of_gans
 - https://www.kaggle.com/code/heonh0/pggan-progressive-growing-gan-pggan-pytorch/notebook
+- https://towardsdatascience.com/progan-how-nvidia-generated-images-of-unprecedented-quality-51c98ec2cbd2
